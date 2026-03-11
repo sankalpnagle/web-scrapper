@@ -101,37 +101,8 @@ def process_batch(batch_size):
                             keyword = ' '
                         urls = [ {"rss":rss_url , "publication" : publication }]
                         original_link = asyncio.run(process_urls_in_batches(urls))
-                        
-                        publication_rss = getMainDomainName(original_link)
-                        print(publication_rss, publication)
-                        if re.search(publication_rss, publication) and not original_link == 'https://www.msn.com/en-ca':
-                            formatted_values = []
-                            source = 'GoogleInsert'
-                            processed = None
-                            process_status = 'New'
-                            process_batch = None
-                            insert_query = """
-                            INSERT INTO public."ALL_SEARCH_LINK" (
-                                "LINK", "SOURCE", "PUBLICATION", "ARTICLEDATE", "KEYWORD", "PROCESSED", "PROCESSSTATUS", "PROCESSBATCH"
-                            ) VALUES %s
-                            ON CONFLICT ("LINK", "SOURCE") DO NOTHING;
-                            """
-                            formatted_values.append((original_link, source, publication, article_date, keyword, processed, process_status, process_batch))
 
-                            psycopg2.extras.execute_values(cursor, insert_query, formatted_values)
-                            conn.commit()
-
-                            cursor.execute(
-                                sql.SQL('''
-                                    UPDATE public."GOOGLE_SEARCH_LINK"
-                                    SET "CANONICAL_LINK" = %s, "ISERROR" = B'0', "COUNTER_EXTRACT" = NULL
-                                    WHERE "LINK" = %s
-                                '''),
-                                [original_link, rss_url]
-                                
-                            )
-                            print(f"Successfully : Processed {original_link}")
-                        else:
+                        if original_link is None:
                             cursor.execute(
                                 sql.SQL('''
                                     UPDATE public."GOOGLE_SEARCH_LINK"
@@ -141,6 +112,45 @@ def process_batch(batch_size):
                                 [rss_url]
                             )
                             print(f"Error processing {rss_url}, no canonical link found")
+                        else:
+                            publication_rss = getMainDomainName(original_link)
+                            print(publication_rss, publication)
+                            if re.search(publication_rss, publication) and original_link != 'https://www.msn.com/en-ca':
+                                formatted_values = []
+                                source = 'GoogleInsert'
+                                processed = None
+                                process_status = 'New'
+                                process_batch = None
+                                insert_query = """
+                                INSERT INTO public."ALL_SEARCH_LINK" (
+                                    "LINK", "SOURCE", "PUBLICATION", "ARTICLEDATE", "KEYWORD", "PROCESSED", "PROCESSSTATUS", "PROCESSBATCH"
+                                ) VALUES %s
+                                ON CONFLICT ("LINK", "SOURCE") DO NOTHING;
+                                """
+                                formatted_values.append((original_link, source, publication, article_date, keyword, processed, process_status, process_batch))
+
+                                psycopg2.extras.execute_values(cursor, insert_query, formatted_values)
+                                conn.commit()
+
+                                cursor.execute(
+                                    sql.SQL('''
+                                        UPDATE public."GOOGLE_SEARCH_LINK"
+                                        SET "CANONICAL_LINK" = %s, "ISERROR" = B'0', "COUNTER_EXTRACT" = NULL
+                                        WHERE "LINK" = %s
+                                    '''),
+                                    [original_link, rss_url]
+                                )
+                                print(f"Successfully : Processed {original_link}")
+                            else:
+                                cursor.execute(
+                                    sql.SQL('''
+                                        UPDATE public."GOOGLE_SEARCH_LINK"
+                                        SET "ISERROR" = B'1', "COUNTER_EXTRACT" = NULL
+                                        WHERE "LINK" = %s
+                                    '''),
+                                    [rss_url]
+                                )
+                                print(f"Error processing {rss_url}, no canonical link found")
 
                         conn.commit()
                         
