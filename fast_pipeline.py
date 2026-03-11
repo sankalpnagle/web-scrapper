@@ -77,7 +77,7 @@ sys.stdout = logger
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────
 
-PIPELINE_TIMEOUT_S    = float(os.getenv("FAST_TIMEOUT_MS",  "3000")) / 1000.0
+PIPELINE_TIMEOUT_S    = float(os.getenv("FAST_TIMEOUT_MS",  "8000")) / 1000.0
 NUM_WORKERS           = int(os.getenv("FAST_NUM_WORKERS",   "15"))
 BATCH_SIZE            = int(os.getenv("FAST_BATCH_SIZE",    "25"))
 WORKER_STAGGER_S      = float(os.getenv("FAST_STAGGER_S",  "0.5"))
@@ -230,6 +230,8 @@ def _process_single_url(rss_url: str) -> None:
             logger.failure(f"Fetch exception | {rss_url} | {fetch_err}")
 
         # ── 3a. SUCCESS ───────────────────────────────────────
+        if original_link and len(original_link) > MAX_LINK_LENGTH:
+            logger.failure(f"LINK TOO LONG ({len(original_link)} > {MAX_LINK_LENGTH}) | {rss_url}")
         if (not timed_out) and original_link and _is_valid_canonical(original_link, publication):
             _insert_canonical(cursor, conn, original_link, publication, article_date, keyword)
             cursor.execute(
@@ -246,7 +248,10 @@ def _process_single_url(rss_url: str) -> None:
 
         # ── 3b. FAILURE / TIMEOUT  (REQ-4) ───────────────────
         else:
-            reason = "TIMEOUT" if timed_out else "no valid canonical link"
+            reason = "TIMEOUT" if timed_out else (
+                "link too long" if (original_link and len(original_link) > MAX_LINK_LENGTH)
+                else "no valid canonical link"
+            )
             cursor.execute(
                 """UPDATE public."GOOGLE_SEARCH_LINK"
                    SET    "ISERROR"         = B'1',
@@ -383,8 +388,12 @@ def process_batch(batch_size: int) -> None:
 # CANONICAL VALIDATION + DB INSERT
 # ─────────────────────────────────────────────────────────────
 
+MAX_LINK_LENGTH = 2083  # ALL_SEARCH_LINK.LINK, GOOGLE_SEARCH_LINK.CANONICAL_LINK
+
 def _is_valid_canonical(link: str, publication: str) -> bool:
     if not link:
+        return False
+    if len(link) > MAX_LINK_LENGTH:
         return False
     if link.rstrip("/") in ("https://www.msn.com/en-ca", "https://www.msn.com"):
         return False

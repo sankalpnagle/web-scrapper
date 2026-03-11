@@ -1,6 +1,11 @@
 import asyncio
+import os
 from playwright.async_api import async_playwright
 import re
+
+# Pipeline A timeout: ~6s typical, 8s budget (env: FAST_TIMEOUT_MS)
+_GOTO_TIMEOUT_MS   = int(os.getenv("FAST_TIMEOUT_MS", "8000"))
+_POST_LOAD_WAIT_MS = int(os.getenv("FAST_POST_LOAD_MS", "2000"))
 
 async def get_urls(url):
     collected_urls = []
@@ -16,9 +21,8 @@ async def get_urls(url):
         page.on("request", intercept_request)
 
         try:
-            #await page.goto(url, wait_until="networkidle")
-            await page.goto(url, timeout=3000)
-            await page.wait_for_timeout(3000)
+            await page.goto(url, timeout=_GOTO_TIMEOUT_MS)
+            await page.wait_for_timeout(_POST_LOAD_WAIT_MS)
         except Exception as e:
             print(f"Error navigating to URL {url}: {e}")
         finally:

@@ -1,16 +1,11 @@
 """
-fetchCanonicalLinkWithConsent.py  —  Pipeline B fetcher (consent-aware, 15s budget)
+fetchCanonicalLinkWithConsent.py  —  Pipeline B fetcher (consent-aware)
 
-Timing budget (must fit inside Pipeline B's asyncio.wait_for(15s)):
-  - page.goto()          : up to 12s  (GOTO_TIMEOUT_MS)
-  - wait_for_timeout()   : 1.5s       (POST_LOAD_WAIT_MS)  — reduced from 3s
-  - consent handling     : ~0.5s overhead
-  Total worst-case       : ~14s  ✅  safely under 15s
-
-Previous problems fixed:
-  - wait_for_timeout(3000) + goto(15000) = 18s total → exceeded asyncio budget
-  - page.goto() had no timeout → Playwright default 30s leaked zombie browsers
-  - wait_for_timeout is now env-configurable via POST_LOAD_WAIT_MS
+Timing: observed ~20s for slow redirects. Budget 25s (RETRY_TIMEOUT_MS).
+  - page.goto()          : up to 20s
+  - wait_for_timeout()   : 4s
+  - consent handling     : ~1s overhead
+  Total worst-case       : ~25s  (fits asyncio.wait_for)
 """
 
 import asyncio
@@ -18,10 +13,9 @@ from playwright.async_api import async_playwright
 import re
 import os
 
-# goto=15000 + wait=5000 = 20s total
-# asyncio.wait_for in Pipeline B is set to 25s to give headroom
-_GOTO_TIMEOUT_MS    = int(os.getenv("GOTO_TIMEOUT_MS",   "15000"))
-_POST_LOAD_WAIT_MS  = int(os.getenv("POST_LOAD_WAIT_MS", "5000"))
+# GOTO + POST_LOAD must fit inside Pipeline B asyncio.wait_for(25s)
+_GOTO_TIMEOUT_MS    = int(os.getenv("RETRY_GOTO_MS",     "20000"))
+_POST_LOAD_WAIT_MS  = int(os.getenv("RETRY_POST_LOAD_MS", "4000"))
 
 
 async def get_urls(url: str) -> list:
