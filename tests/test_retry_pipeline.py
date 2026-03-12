@@ -21,7 +21,7 @@ def test_get_lock_value_is_timestamp():
 
 # ── REQ-3: Retry pipeline 15 sec timeout ──────────────────────────────────────
 def test_retry_pipeline_timeout_config():
-    """REQ-3: Retry pipeline uses 25 sec timeout (handles ~20s slow redirects)."""
+    """REQ-3: Retry pipeline uses 25 sec timeout."""
     from retry_pipeline import PIPELINE_TIMEOUT_S
 
     assert PIPELINE_TIMEOUT_S == 25.0

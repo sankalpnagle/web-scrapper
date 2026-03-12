@@ -1,7 +1,7 @@
 """
 PIPELINE A — FAST PIPELINE
 Purpose  : Primary processing of fresh RSS records
-Timeout  : 3 000 ms per URL
+Timeout  : 3 000 ms per URL (env: FAST_TIMEOUT_MS)
 Workers  : 15  (env: FAST_NUM_WORKERS)
 Batch    : 25  (env: FAST_BATCH_SIZE)
 
@@ -77,7 +77,7 @@ sys.stdout = logger
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────
 
-PIPELINE_TIMEOUT_S    = float(os.getenv("FAST_TIMEOUT_MS",  "8000")) / 1000.0
+PIPELINE_TIMEOUT_S    = float(os.getenv("FAST_TIMEOUT_MS",  "3000")) / 1000.0
 NUM_WORKERS           = int(os.getenv("FAST_NUM_WORKERS",   "15"))
 BATCH_SIZE            = int(os.getenv("FAST_BATCH_SIZE",    "25"))
 WORKER_STAGGER_S      = float(os.getenv("FAST_STAGGER_S",  "0.5"))
@@ -388,7 +388,7 @@ def process_batch(batch_size: int) -> None:
 # CANONICAL VALIDATION + DB INSERT
 # ─────────────────────────────────────────────────────────────
 
-MAX_LINK_LENGTH = 2083  # ALL_SEARCH_LINK.LINK, GOOGLE_SEARCH_LINK.CANONICAL_LINK
+MAX_LINK_LENGTH = 255  # ALL_SEARCH_LINK.LINK, GOOGLE_SEARCH_LINK.CANONICAL_LINK
 
 def _is_valid_canonical(link: str, publication: str) -> bool:
     if not link:

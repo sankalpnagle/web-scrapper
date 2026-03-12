@@ -1,7 +1,7 @@
 """
 PIPELINE B — RETRY PIPELINE
 Purpose  : Second-chance processing for records where RETRY = 1
-Timeout  : 15 000 ms per URL
+Timeout  : 25 000 ms per URL (env: RETRY_TIMEOUT_MS)
 Workers  : 5   (env: RETRY_NUM_WORKERS)
 Batch    : 10  (env: RETRY_BATCH_SIZE)
 
@@ -361,7 +361,7 @@ def process_batch(batch_size: int) -> None:
 # CANONICAL VALIDATION + INSERT
 # ─────────────────────────────────────────────────────────────
 
-MAX_LINK_LENGTH = 2083  # ALL_SEARCH_LINK.LINK, GOOGLE_SEARCH_LINK.CANONICAL_LINK
+MAX_LINK_LENGTH = 255  # ALL_SEARCH_LINK.LINK, GOOGLE_SEARCH_LINK.CANONICAL_LINK
 
 def _is_valid_canonical(link: str, publication: str) -> bool:
     if not link:

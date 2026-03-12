@@ -3,16 +3,32 @@ import os
 from playwright.async_api import async_playwright
 import re
 
-# Pipeline A timeout: ~6s typical, 8s budget (env: FAST_TIMEOUT_MS)
-_GOTO_TIMEOUT_MS   = int(os.getenv("FAST_TIMEOUT_MS", "8000"))
-_POST_LOAD_WAIT_MS = int(os.getenv("FAST_POST_LOAD_MS", "2000"))
+# Pipeline A timeout: 3s per spec (env: FAST_TIMEOUT_MS)
+_GOTO_TIMEOUT_MS   = int(os.getenv("FAST_TIMEOUT_MS", "3000"))
+_POST_LOAD_WAIT_MS = int(os.getenv("FAST_POST_LOAD_MS", "3000"))
 
 async def get_urls(url):
     collected_urls = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        page = await browser.new_page()
+        context = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+            extra_http_headers={"Accept-Language": "en-US,en;q=0.9"},
+        )
+        # Pre-set consent cookie to skip Google consent wall
+        await context.add_cookies([{
+            "name": "CONSENT",
+            "value": "YES+",
+            "domain": ".google.com",
+            "path": "/",
+        }])
+        page = await context.new_page()
 
         async def intercept_request(request):
             if request.resource_type == "document" or request.resource_type == "xhr":
