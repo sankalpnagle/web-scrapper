@@ -1,0 +1,49 @@
+Total rows: 100
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#1
+  PUBLICATION    : msn.com
+  KEYWORD        : Nothing Ear
+  ARTICLE DATE   : 2026-03-09 06:18:29+05:30
+  RETRY          : 0  |  ISERROR: 0  |  COUNTER_EXTRACT: NULL
+  RSS LINK       : https://news.google.com/rss/articles/CBMivgNBVV95cUxPcU5MelFITVpRcXdwUEc4ZG1xU3pNUzNYVmFKcER6eHd2ZDlySnJmR041TE9uM1ViLWVGTHF0WDVJSllsQTNtZmRFMkFiMHNPckhTYmp1RTM1cktVaUxWX1ZPSnVoM0M1bXcyckNJRTFrV2E1NUE1RW1lMXpzM0M0d1dyemtnb0JPQU9weDZGYnQ2YUlONnJlWGFxOXJhXzd0NFZEYUdfOHc3aDc4bmdxWVYwOXVCblJIVFVfdndZX0xBVlVpei0xX0pvZTFGSXlHdHRZdXBZVUQxai04ZllGQlJfeTU0d0xDV3FRVXdCNVVmOGpUYTZ2dElKZThqdlVrWW1GbFpja1JTbzVHdEkzOE8xbHJLakFxekYtSFFGa3NabWJKSS1TdHQzNW1tYm9wRzFJMV9PTHRZUVVLbWlEMDY1STNnLXlJYld0b1dhYTNaS0lwVFB6ejVaS1AwV2UwQUZ4ZG1jU1hhMmhKWk5wQXdzeHdTaGpNX3F0eU1KZ1VnNmVwWmFyY0IyNlk1Vk1ydlFDVkhiaXUyUEpOV1BYdV9HZE8xVkcydWRQOHdrWmZVX2xfVHFGTGtMdEw1dw?oc=5&hl=en-US&gl=US&ceid=US:en
+  DECODED        : http://www.msn.com/en-us/lifestyle/shopping/these-new-nothing-over-ears-are-built-for-long-days-and-they-re-60-off-for-a-limited-time/ar-AA1WooVv?item=flightsprg-tipsubsc-v1a%3Floadin%3Ddefaultbrowser&apiversion=v2&domshim=1&noservercache=1&noservertelemetry=1&batchservertelemetry=1&renderwebcomponents=1&wcseo=1
+  DECODED LEN    : 313 chars
+  DECODED DOMAIN : msn.com
+  DOMAIN MATCH   : YES
+  RESULT         : FAIL ù URL too long (313 > 255 chars)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#2
+  PUBLICATION    : msn.com
+  KEYWORD        : Nothing Ear
+  ARTICLE DATE   : 2026-03-09 03:45:25+05:30
+  RETRY          : 0  |  ISERROR: 0  |  COUNTER_EXTRACT: NULL
+  RSS LINK       : https://news.google.com/rss/articles/CBMihwNBVV95cUxQTnA5Z0xpS2FzNnBUUTFJV0lYSFN6Vzl6aDVjMXg3X19fSDRWWW9jRUREZHhJa0Zpdi1SY0NSV0FRdHRfdGRzMG9MOWFfeHdRbWRXZnBuaXBqQ0RYREgteWhmdXB2Q1JZcFZVejE3aUQtTzBLQkllY3dkY2Y5MFBBQjJKWWppS2RQaFJlNkk0TTE3V0pFOU8yanVKVHIwMmJ2b2lIc1FDaWphSzJXY2h0SFBoczQxTWx0V3FiMXJHT1lLOFVTVnRINE5mLWQySWJlRGtmX3lCMGhyNmdVV2pXUUdmMTZXcTV0SEgxNFQxY1FrV3ZiUVp4X1JxVktmTHdQTTFuaUNJZzZYOEtJd0twazdXMDcyaUVhdTc3cDdyeUJIMjRxMjBCazYyX1BPNmVGS3RURkhacnJ3Sy0tQVkyWkIzVm8zV2pwVlViQWlpN2R3em1iV2RkM1dLWlNvQ1NMVHFrSVJtSlNXbjcwTUZJTVpNaVp6Y0RrQ21WdU81VWpvY010UWdv?oc=5&hl=en-US&gl=US&ceid=US:en
+  DECODED        : https://www.msn.com/en-ph/news/national/nothing-malicious-about-pinoy-boyfriend-comment-jinggoy/ar-AA1XJ1ig?cvid=4eb9a66615554aa6eb1e466ce9357284&ocid=msedgntp&apiversion=v2&domshim=1&noservercache=1&noservertelemetry=1&batchservertelemetry=1&renderwebcomponents=1&wcseo=1
+  DECODED LEN    : 272 chars
+  DECODED DOMAIN : msn.com
+  DOMAIN MATCH   : YES
+  RESULT         : FAIL ù URL too long (272 > 255 chars)
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#3
+  PUBLICATION    : msn.com
+Traceback (most recent call last):
+  File "F:\PnQ\googlecanonicallinks\test_live_csv.py", line 116, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "c:\python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "c:\python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "c:\python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "F:\PnQ\googlecanonicallinks\test_live_csv.py", line 52, in main
+    print(f"  KEYWORD        : {keyword}")
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "c:\python314\Lib\encodings\cp1252.py", line 19, in encode
+    return codecs.charmap_encode(input,self.errors,encoding_table)[0]
+           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'charmap' codec can't encode characters in position 31-37: character maps to <undefined>

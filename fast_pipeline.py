@@ -211,6 +211,11 @@ def _process_single_url(rss_url: str) -> None:
         if not keyword:
             keyword = " "
 
+        logger.info(
+            f"PROCESSING | pub={publication} | keyword={keyword.strip()[:60]} | "
+            f"date={article_date} | url={rss_url}"
+        )
+
         # ── 2. Fetch canonical link with hard timeout ─────────
         original_link = None
         timed_out     = False
@@ -230,8 +235,6 @@ def _process_single_url(rss_url: str) -> None:
             logger.failure(f"Fetch exception | {rss_url} | {fetch_err}")
 
         # ── 3a. SUCCESS ───────────────────────────────────────
-        if original_link and len(original_link) > MAX_LINK_LENGTH:
-            logger.failure(f"LINK TOO LONG ({len(original_link)} > {MAX_LINK_LENGTH}) | {rss_url}")
         if (not timed_out) and original_link and _is_valid_canonical(original_link, publication):
             _insert_canonical(cursor, conn, original_link, publication, article_date, keyword)
             cursor.execute(
@@ -244,7 +247,11 @@ def _process_single_url(rss_url: str) -> None:
                 [original_link, rss_url]
             )
             conn.commit()
-            logger.success(f"PROCESS SUCCESS | {rss_url} → {original_link}")
+            logger.success(
+                f"PROCESS SUCCESS | pub={publication} | "
+                f"rss={rss_url} | canonical={original_link} | "
+                f"canonical_len={len(original_link)}"
+            )
 
         # ── 3b. FAILURE / TIMEOUT  (REQ-4) ───────────────────
         else:
@@ -261,7 +268,14 @@ def _process_single_url(rss_url: str) -> None:
                 [rss_url]
             )
             conn.commit()
-            logger.failure(f"PROCESS FAILURE ({reason}) | {rss_url}")
+            decoded_info = (
+                f" | decoded={original_link} | decoded_len={len(original_link)}"
+                if original_link else " | decoded=None"
+            )
+            logger.failure(
+                f"PROCESS FAILURE ({reason}) | pub={publication} | "
+                f"rss={rss_url}{decoded_info}"
+            )
             logger.retry(f"RETRY TRIGGERED ({reason}) | {rss_url}")
 
     except Exception as e:
@@ -395,7 +409,10 @@ def _is_valid_canonical(link: str, publication: str) -> bool:
         return False
     if len(link) > MAX_LINK_LENGTH:
         return False
-    if link.rstrip("/") in ("https://www.msn.com/en-ca", "https://www.msn.com"):
+    if link.rstrip("/") in (
+        "https://www.msn.com/en-ca", "https://www.msn.com",
+        "http://www.msn.com/en-ca",  "http://www.msn.com",
+    ):
         return False
     return bool(re.search(re.escape(get_main_domain(link)), publication))
 
@@ -410,7 +427,7 @@ def _insert_canonical(cursor, conn, original_link, publication, article_date, ke
            ON CONFLICT ("LINK", "SOURCE") DO NOTHING""",
         [(original_link, "GoogleInsert", publication, article_date, keyword, None, "New", None)]
     )
-    conn.commit()
+    # No commit here — caller commits INSERT + UPDATE GOOGLE_SEARCH_LINK atomically
 
 
 # ─────────────────────────────────────────────────────────────

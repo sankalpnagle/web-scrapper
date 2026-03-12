@@ -3,22 +3,16 @@ fetchCanonicalLinkWithConsent.py  —  Pipeline B fetcher
 
 Uses googlenewsdecoder library instead of Playwright.
 Decodes Google News URLs to their original article URLs via HTTP (no browser).
+Publication validation is handled by the pipeline's _is_valid_canonical.
 """
 
 import asyncio
-import re
 import os
-import tldextract
 from googlenewsdecoder import gnewsdecoder
 
 # Optional: proxy for rate limiting (env: RETRY_PROXY)
 _PROXY = os.getenv("RETRY_PROXY", None)
 _INTERVAL = float(os.getenv("RETRY_DECODER_INTERVAL", "0"))
-
-
-def _get_main_domain(url: str) -> str:
-    e = tldextract.extract(url)
-    return f"{e.domain}.{e.suffix}"
 
 
 def _decode_url(rss_url: str) -> str | None:
@@ -35,21 +29,15 @@ def _decode_url(rss_url: str) -> str | None:
 async def process_urls_in_batches(urls: list):
     """
     Decode Google News URLs using googlenewsdecoder.
-    Returns the decoded URL if it matches the publication, else None.
+    Returns the decoded canonical URL (publication check done by pipeline).
     """
     for item in urls:
         rss_url = item["rss"]
-        publication = item["publication"]
 
         # Run blocking gnewsdecoder in thread pool (async-friendly)
         decoded = await asyncio.to_thread(_decode_url, rss_url)
 
-        if not decoded:
-            continue
-
-        # Validate: decoded URL domain must match publication
-        domain = _get_main_domain(decoded)
-        if re.search(re.escape(domain), publication):
+        if decoded:
             return decoded
 
     return None

@@ -1,17 +1,19 @@
 import asyncio
 import os
 from playwright.async_api import async_playwright
-import re
 
 # Pipeline A timeout: 3s per spec (env: FAST_TIMEOUT_MS)
 _GOTO_TIMEOUT_MS   = int(os.getenv("FAST_TIMEOUT_MS", "3000"))
-_POST_LOAD_WAIT_MS = int(os.getenv("FAST_POST_LOAD_MS", "3000"))
+_POST_LOAD_WAIT_MS = int(os.getenv("FAST_POST_LOAD_MS", "0"))  # 0 = rely on goto timeout only
 
 async def get_urls(url):
     collected_urls = []
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        browser = await p.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox"],
+        )
         context = await browser.new_context(
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -47,16 +49,14 @@ async def get_urls(url):
     return collected_urls
 
 async def process_urls_in_batches(urls):
-    all_collected_urls = []
-    
+    """
+    Intercept requests made by the browser when navigating the Google News URL.
+    Returns the first non-Google URL found (publication check done by pipeline).
+    """
     for url in urls:
-        collected_urls = await get_urls(url['rss'])  # Ensure we await the coroutine
-        all_collected_urls.extend(collected_urls)  # Collect all URLs from the batch
-
+        collected_urls = await get_urls(url['rss'])
         for collected_url in collected_urls:
-            # print(collected_url)
-            if re.search(url['publication'], collected_url):
-                # print(collected_url)
+            if 'google.com' not in collected_url:
                 return collected_url
 
     return None

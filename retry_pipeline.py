@@ -80,6 +80,8 @@ NUM_WORKERS           = int(os.getenv("RETRY_NUM_WORKERS",   "5"))
 BATCH_SIZE            = int(os.getenv("RETRY_BATCH_SIZE",    "10"))
 WORKER_STAGGER_S      = float(os.getenv("RETRY_STAGGER_S",  "1.0"))
 HOURLY_RESET_INTERVAL = 3600
+RATE_LIMIT_THRESHOLD  = int(os.getenv("RETRY_RATE_LIMIT_THRESHOLD", "5"))   # consecutive failures → assume rate-limited
+RATE_LIMIT_SLEEP_S    = int(os.getenv("RETRY_RATE_LIMIT_SLEEP_S",   "7200")) # sleep 2 hours when rate-limited
 
 # ─────────────────────────────────────────────────────────────
 # HELPERS
@@ -156,7 +158,7 @@ def _hourly_reset_loop():
 # PER-URL PROCESSOR  (REQ-2, REQ-5, REQ-9, REQ-10)
 # ─────────────────────────────────────────────────────────────
 
-def _process_single_url(rss_url: str) -> None:
+def _process_single_url(rss_url: str) -> bool:
     """
     BUG-9 FIX: own connection + cursor per URL.
 
@@ -194,11 +196,16 @@ def _process_single_url(rss_url: str) -> None:
             )
             conn.commit()
             logger.failure(f"Row not found — lock released | {rss_url}")
-            return
+            return False
 
         _, publication, article_date, keyword = row
         if not keyword:
             keyword = " "
+
+        logger.info(
+            f"PROCESSING | pub={publication} | keyword={keyword.strip()[:60]} | "
+            f"date={article_date} | url={rss_url}"
+        )
 
         # ── 2. Fetch with longer timeout (consent-aware browser) ──
         original_link = None
@@ -219,8 +226,6 @@ def _process_single_url(rss_url: str) -> None:
             logger.failure(f"Fetch exception | {rss_url} | {fetch_err}")
 
         # ── 3a. SUCCESS ───────────────────────────────────────
-        if original_link and len(original_link) > MAX_LINK_LENGTH:
-            logger.failure(f"LINK TOO LONG ({len(original_link)} > {MAX_LINK_LENGTH}) | {rss_url}")
         if (not timed_out) and original_link and _is_valid_canonical(original_link, publication):
             _insert_canonical(cursor, conn, original_link, publication, article_date, keyword)
             cursor.execute(
@@ -233,7 +238,12 @@ def _process_single_url(rss_url: str) -> None:
                 [original_link, rss_url]
             )
             conn.commit()
-            logger.success(f"PROCESS SUCCESS (retry resolved) | {rss_url} → {original_link}")
+            logger.success(
+                f"PROCESS SUCCESS (retry resolved) | pub={publication} | "
+                f"rss={rss_url} | canonical={original_link} | "
+                f"canonical_len={len(original_link)}"
+            )
+            return True
 
         # ── 3b. FINAL FAILURE  (REQ-5: do NOT set RETRY=1 again) ──
         else:
@@ -249,9 +259,15 @@ def _process_single_url(rss_url: str) -> None:
                 [rss_url]
             )
             conn.commit()
-            logger.failure(
-                f"PROCESS FAILURE (retry exhausted — {reason}) | {rss_url}"
+            decoded_info = (
+                f" | decoded={original_link} | decoded_len={len(original_link)}"
+                if original_link else " | decoded=None"
             )
+            logger.failure(
+                f"PROCESS FAILURE (retry exhausted — {reason}) | pub={publication} | "
+                f"rss={rss_url}{decoded_info}"
+            )
+            return False
 
     except Exception as e:
         logger.failure(f"PROCESS FAILURE (exception) | {rss_url} | {e}")
@@ -262,6 +278,7 @@ def _process_single_url(rss_url: str) -> None:
             pass
         # REQ-5: do NOT add RETRY=1 here either
         _safe_release(rss_url)
+        return False
 
     finally:
         for obj in (cursor, conn):
@@ -277,6 +294,7 @@ def _process_single_url(rss_url: str) -> None:
 # ─────────────────────────────────────────────────────────────
 
 def process_batch(batch_size: int) -> None:
+    consecutive_failures = 0
     while True:
         conn   = localConnection()
         cursor = conn.cursor()
@@ -332,8 +350,40 @@ def process_batch(batch_size: int) -> None:
         processed = set()
         try:
             for rss_url in locked_urls:
-                _process_single_url(rss_url)
+                success = _process_single_url(rss_url)
                 processed.add(rss_url)
+                if success:
+                    consecutive_failures = 0
+                else:
+                    consecutive_failures += 1
+                    if consecutive_failures >= RATE_LIMIT_THRESHOLD:
+                        remaining = [u for u in locked_urls if u not in processed]
+                        if remaining:
+                            try:
+                                fb = localConnection()
+                                with fb.cursor() as cur:
+                                    cur.execute(
+                                        """UPDATE public."GOOGLE_SEARCH_LINK"
+                                           SET    "COUNTER_EXTRACT" = NULL
+                                           WHERE  "LINK" = ANY(%s)
+                                           AND    "COUNTER_EXTRACT" IS NOT NULL""",
+                                        [remaining]
+                                    )
+                                    fb.commit()
+                                fb.close()
+                                logger.info(
+                                    f"Rate limit: released {len(remaining)} unprocessed locked row(s) "
+                                    f"so other workers can continue."
+                                )
+                            except Exception as rel_err:
+                                logger.failure(f"Rate limit: bulk-release failed: {rel_err}")
+                        logger.failure(
+                            f"Rate limit detected — {consecutive_failures} consecutive failures. "
+                            f"Sleeping {RATE_LIMIT_SLEEP_S // 3600}h before resuming."
+                        )
+                        time.sleep(RATE_LIMIT_SLEEP_S)
+                        consecutive_failures = 0
+                        break  # exit for-loop; outer while True will re-lock and continue
         except Exception as loop_err:
             logger.failure(f"Unhandled loop error: {loop_err}")
             remaining = [u for u in locked_urls if u not in processed]
@@ -368,7 +418,10 @@ def _is_valid_canonical(link: str, publication: str) -> bool:
         return False
     if len(link) > MAX_LINK_LENGTH:
         return False
-    if link.rstrip("/") in ("https://www.msn.com/en-ca", "https://www.msn.com"):
+    if link.rstrip("/") in (
+        "https://www.msn.com/en-ca", "https://www.msn.com",
+        "http://www.msn.com/en-ca",  "http://www.msn.com",
+    ):
         return False
     return bool(re.search(re.escape(get_main_domain(link)), publication))
 
@@ -383,7 +436,7 @@ def _insert_canonical(cursor, conn, original_link, publication, article_date, ke
            ON CONFLICT ("LINK", "SOURCE") DO NOTHING""",
         [(original_link, "GoogleInsert", publication, article_date, keyword, None, "New", None)]
     )
-    conn.commit()
+    # No commit here — caller commits INSERT + UPDATE GOOGLE_SEARCH_LINK atomically
 
 
 # ─────────────────────────────────────────────────────────────
