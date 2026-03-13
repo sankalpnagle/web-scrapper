@@ -77,7 +77,10 @@ sys.stdout = logger
 # CONSTANTS
 # ─────────────────────────────────────────────────────────────
 
-PIPELINE_TIMEOUT_S    = float(os.getenv("FAST_TIMEOUT_MS",  "3000")) / 1000.0
+# Goto timeout (controls Playwright page.goto)
+_GOTO_TIMEOUT_MS      = int(os.getenv("FAST_TIMEOUT_MS", "3000"))
+# Pipeline-level asyncio.wait_for timeout = goto timeout + 3s overhead for browser launch
+PIPELINE_TIMEOUT_S    = (_GOTO_TIMEOUT_MS + 3000) / 1000.0
 NUM_WORKERS           = int(os.getenv("FAST_NUM_WORKERS",   "15"))
 BATCH_SIZE            = int(os.getenv("FAST_BATCH_SIZE",    "25"))
 WORKER_STAGGER_S      = float(os.getenv("FAST_STAGGER_S",  "0.5"))
@@ -229,10 +232,10 @@ def _process_single_url(rss_url: str) -> None:
         except asyncio.TimeoutError:
             timed_out = True
             logger.timeout(
-                f"TIMEOUT after {PIPELINE_TIMEOUT_S*1000:.0f}ms | {rss_url}"
+                f"TIMEOUT after {_GOTO_TIMEOUT_MS}ms | pub={publication} | rss={rss_url}"
             )
         except Exception as fetch_err:
-            logger.failure(f"Fetch exception | {rss_url} | {fetch_err}")
+            logger.failure(f"Fetch exception | pub={publication} | rss={rss_url} | {fetch_err}")
 
         # ── 3a. SUCCESS ───────────────────────────────────────
         if (not timed_out) and original_link and _is_valid_canonical(original_link, publication):
@@ -437,7 +440,7 @@ def _insert_canonical(cursor, conn, original_link, publication, article_date, ke
 def run_pipeline(num_workers: int, batch_size: int) -> None:
     logger.info(
         f"Pipeline A starting | workers={num_workers} | "
-        f"batch={batch_size} | timeout={PIPELINE_TIMEOUT_S*1000:.0f}ms"
+        f"batch={batch_size} | goto_timeout={_GOTO_TIMEOUT_MS}ms | pipeline_timeout={PIPELINE_TIMEOUT_S*1000:.0f}ms"
     )
 
     # Start hourly stale-lock reset in background daemon thread

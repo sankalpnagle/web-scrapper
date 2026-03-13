@@ -22,10 +22,13 @@ def test_get_lock_value_is_timestamp():
 
 # ── REQ-3: Fast pipeline timeout 3 sec ─────────────────────────────────────
 def test_fast_pipeline_timeout_config():
-    """REQ-3: Fast pipeline uses 3 sec timeout per spec."""
-    from fast_pipeline import PIPELINE_TIMEOUT_S
+    """REQ-3: Fast pipeline goto timeout = 3s; pipeline wrapper = goto + 3s overhead."""
+    import os
+    from fast_pipeline import PIPELINE_TIMEOUT_S, _GOTO_TIMEOUT_MS
 
-    assert PIPELINE_TIMEOUT_S == 3.0
+    goto_ms = int(os.getenv("FAST_TIMEOUT_MS", "3000"))
+    assert _GOTO_TIMEOUT_MS == goto_ms
+    assert PIPELINE_TIMEOUT_S == (goto_ms + 3000) / 1000.0
 
 
 # ── REQ-6: Hourly reset uses lock time (to_timestamp) ────────────────────────

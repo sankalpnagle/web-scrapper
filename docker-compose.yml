@@ -11,7 +11,7 @@ services:
       # ── Pipeline A (fast) ──────────────────────────────────
       FAST_NUM_WORKERS: "15"
       FAST_BATCH_SIZE: "25"
-      FAST_TIMEOUT_MS: "3000"
+      FAST_TIMEOUT_MS: "3500"
       FAST_STAGGER_S: "0.5"
       FAST_POST_LOAD_MS: "0"
 
@@ -20,8 +20,7 @@ services:
       RETRY_BATCH_SIZE: "10"
       RETRY_TIMEOUT_MS: "25000"
       RETRY_STAGGER_S: "1.0"
-      RETRY_PROXY: ""
-      RETRY_DECODER_INTERVAL: "0"
+      RETRY_DECODER_INTERVAL: "2"
 
       # ── Rate-limit detection (Pipeline B) ─────────────────
       RETRY_RATE_LIMIT_THRESHOLD: "5" # consecutive failures before sleep

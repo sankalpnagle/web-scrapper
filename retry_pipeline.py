@@ -220,10 +220,10 @@ def _process_single_url(rss_url: str) -> bool:
         except asyncio.TimeoutError:
             timed_out = True
             logger.timeout(
-                f"TIMEOUT after {PIPELINE_TIMEOUT_S*1000:.0f}ms | {rss_url}"
+                f"TIMEOUT after {PIPELINE_TIMEOUT_S*1000:.0f}ms | pub={publication} | rss={rss_url}"
             )
         except Exception as fetch_err:
-            logger.failure(f"Fetch exception | {rss_url} | {fetch_err}")
+            logger.failure(f"Fetch exception | pub={publication} | rss={rss_url} | {fetch_err}")
 
         # ── 3a. SUCCESS ───────────────────────────────────────
         if (not timed_out) and original_link and _is_valid_canonical(original_link, publication):
